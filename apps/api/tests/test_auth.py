@@ -40,6 +40,7 @@ async def test_register_login_and_me() -> None:
             "/auth/register",
             json={
                 "username": "Test_User",
+                "email": "test@example.com",
                 "display_name": "Test User",
                 "password": "correct-horse-battery",
             },
@@ -69,6 +70,7 @@ async def test_duplicate_username_and_bad_password() -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         payload = {
             "username": "same_user",
+            "email": "same@example.com",
             "display_name": "Same User",
             "password": "correct-horse-battery",
         }
@@ -90,6 +92,7 @@ async def test_refresh_rotation_and_logout() -> None:
             "/auth/register",
             json={
                 "username": "rotate_user",
+                "email": "rotate@example.com",
                 "display_name": "Rotate User",
                 "password": "correct-horse-battery",
             },
