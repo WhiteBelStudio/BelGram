@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 
 import jwt
 from fastapi import Depends, HTTPException, Request, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
