@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: belgram_staging
+      POSTGRES_USER: belgram
+      POSTGRES_PASSWORD: belgram_staging
+    ports: ['55432:5432']
+    volumes: [belgram_staging_postgres:/var/lib/postgresql/data]
+  redis:
+    image: redis:7-alpine
+    ports: ['56379:6379']
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: staging
+      DATABASE_URL: postgresql+asyncpg://belgram:belgram_staging@postgres:5432/belgram_staging
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: staging-only-change-me
+      CORS_ORIGINS: http://localhost:15173
+    ports: ['18000:8000']
+    depends_on: [postgres, redis]
+volumes:
+  belgram_staging_postgres:
