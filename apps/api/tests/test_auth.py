@@ -114,3 +114,41 @@ async def test_refresh_rotation_and_logout() -> None:
             "/auth/refresh", json={"refresh_token": new_refresh}
         )
         assert after_logout.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_presence_sessions_and_avatar() -> None:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        register = await client.post(
+            "/auth/register",
+            json={
+                "username": "presence_user",
+                "email": "presence@example.com",
+                "display_name": "Presence User",
+                "password": "correct-horse-battery",
+            },
+        )
+        assert register.status_code == 201
+        access = register.json()["access_token"]
+        headers = {"Authorization": f"Bearer {access}"}
+
+        heartbeat = await client.post("/auth/presence/heartbeat", headers=headers)
+        assert heartbeat.status_code == 200
+        assert heartbeat.json()["is_online"] is True
+
+        sessions = await client.get("/auth/sessions", headers=headers)
+        assert sessions.status_code == 200
+        assert len(sessions.json()) == 1
+
+        offline = await client.post("/auth/presence/offline", headers=headers)
+        assert offline.status_code == 200
+        assert offline.json()["is_online"] is False
+
+        avatar = await client.post(
+            "/auth/avatar",
+            headers=headers,
+            files={"file": ("avatar.png", b"fake-png", "image/png")},
+        )
+        assert avatar.status_code == 200
+        assert avatar.json()["avatar_url"].startswith("/media/avatars/")
