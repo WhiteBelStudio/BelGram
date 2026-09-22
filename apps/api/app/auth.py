@@ -9,7 +9,13 @@ from app.models import Session, User
 from app.security import decode_token, hash_refresh_token
 
 
-async def get_current_user(
+async def _as_utc(value):
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+def get_current_user(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> User:
@@ -32,7 +38,7 @@ async def get_current_user(
         session is None
         or session.user_id != user_id
         or session.revoked_at is not None
-        or session.expires_at <= datetime.now(timezone.utc)
+        or _as_utc(session.expires_at) <= datetime.now(timezone.utc)
     ):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
