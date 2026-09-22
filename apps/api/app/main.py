@@ -1,17 +1,25 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="BelGram API", version="0.1.0")
+from app.config import get_settings
+
+settings = get_settings()
+app = FastAPI(title=settings.app_name, version=settings.app_version)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=['*'],
+    allow_headers=['*'],
 )
 
 
-@app.get("/health")
+@app.get('/health')
 async def health() -> dict[str, str]:
-    return {"status": "ok", "service": "belgram-api", "version": "0.1.0"}
+    return {'status': 'ok', 'service': 'belgram-api', 'version': settings.app_version}
+
+
+@app.get('/ready')
+async def ready() -> dict[str, str]:
+    return {'status': 'ready'}
