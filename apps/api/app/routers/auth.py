@@ -6,6 +6,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user, revoke_refresh_token
+from app.config import get_settings
 from app.db import get_db
 from app.models import Session, User
 from app.schemas import (
@@ -116,7 +117,7 @@ async def refresh(
     try:
         token_payload = jwt.decode(
             payload.refresh_token,
-            __import__("app.config", fromlist=["get_settings"]).get_settings().jwt_secret,
+            get_settings().jwt_secret,
             algorithms=["HS256"],
         )
         if token_payload.get("type") != "refresh":
