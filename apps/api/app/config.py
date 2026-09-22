@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     verification_ttl_minutes: int = 30
     recovery_ttl_minutes: int = 30
     frontend_url: str = "http://localhost:5173"
+    media_dir: str = "./data/media"
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""
