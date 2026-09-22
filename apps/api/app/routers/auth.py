@@ -44,6 +44,12 @@ from app.security import (
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
 ALLOWED_AVATAR_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 MAX_AVATAR_BYTES = 5 * 1024 * 1024
 
@@ -138,7 +144,7 @@ async def refresh(payload: RefreshRequest, request: Request, db: AsyncSession = 
     session = await db.get(Session, session_id)
     if (
         session is None or session.user_id != user_id or session.revoked_at is not None
-        or session.expires_at <= datetime.now(timezone.utc)
+        or _as_utc(session.expires_at) <= datetime.now(timezone.utc)
         or session.token_hash != hash_refresh_token(payload.refresh_token)
     ):
         raise HTTPException(status_code=401, detail="Invalid refresh session")
@@ -294,7 +300,7 @@ async def update_me(
 @router.post("/verify-email", response_model=MessageResponse)
 async def verify_email(payload: VerifyEmailRequest, db: AsyncSession = Depends(get_db)) -> MessageResponse:
     user = await db.scalar(select(User).where(User.verification_token_hash == hash_token(payload.token)))
-    if user is None or user.verification_expires_at is None or user.verification_expires_at <= datetime.now(timezone.utc):
+    if user is None or user.verification_expires_at is None or _as_utc(user.verification_expires_at) <= datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Invalid or expired verification token")
     user.is_verified = True
     user.verification_token_hash = None
@@ -326,7 +332,7 @@ async def request_recovery(payload: RecoveryRequest, db: AsyncSession = Depends(
 @router.post("/recovery/reset", response_model=MessageResponse)
 async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)) -> MessageResponse:
     user = await db.scalar(select(User).where(User.recovery_token_hash == hash_token(payload.token)))
-    if user is None or user.recovery_expires_at is None or user.recovery_expires_at <= datetime.now(timezone.utc):
+    if user is None or user.recovery_expires_at is None or _as_utc(user.recovery_expires_at) <= datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Invalid or expired recovery token")
     user.password_hash = hash_password(payload.new_password)
     user.recovery_token_hash = None
