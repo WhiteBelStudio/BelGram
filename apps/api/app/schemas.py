@@ -14,6 +14,8 @@ class UserPublic(BaseModel):
     status: str
     is_verified: bool
     two_factor_enabled: bool
+    is_online: bool
+    last_seen_at: datetime | None
     created_at: datetime
 
 
@@ -75,6 +77,21 @@ class TwoFactorEnableRequest(BaseModel):
 class TwoFactorDisableRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     code: str = Field(min_length=6, max_length=6)
+
+
+class PresenceResponse(BaseModel):
+    is_online: bool
+    last_seen_at: datetime | None
+
+
+class SessionPublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    user_agent: str | None
+    ip_address: str | None
+    created_at: datetime
+    expires_at: datetime
+    revoked_at: datetime | None
 
 
 class MessageResponse(BaseModel):
