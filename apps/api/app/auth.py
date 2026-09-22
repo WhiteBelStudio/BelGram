@@ -15,7 +15,7 @@ def _as_utc(value: datetime) -> datetime:
     return value
 
 
-def get_current_user(
+async def get_current_user(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> User:
