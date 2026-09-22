@@ -11,7 +11,6 @@ from app.config import get_settings
 
 password_hash = PasswordHash.recommended()
 settings = get_settings()
-
 ACCESS_TTL_SECONDS = 15 * 60
 REFRESH_TTL_SECONDS = 30 * 24 * 60 * 60
 
@@ -26,14 +25,7 @@ def verify_password(password: str, hashed: str) -> bool:
 
 def create_token(*, user_id: int, session_id: int, token_type: str, ttl: int) -> str:
     now = datetime.now(timezone.utc)
-    payload: dict[str, Any] = {
-        "sub": str(user_id),
-        "sid": str(session_id),
-        "type": token_type,
-        "iat": now,
-        "exp": now + timedelta(seconds=ttl),
-        "jti": secrets.token_hex(16),
-    }
+    payload: dict[str, Any] = {"sub": str(user_id), "sid": str(session_id), "type": token_type, "iat": now, "exp": now + timedelta(seconds=ttl), "jti": secrets.token_hex(16)}
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
