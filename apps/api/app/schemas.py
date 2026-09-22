@@ -5,7 +5,6 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 class UserPublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
     id: int
     username: str
     email: EmailStr | None
