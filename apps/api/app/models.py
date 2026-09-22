@@ -28,6 +28,8 @@ class User(Base):
     recovery_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     two_factor_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     two_factor_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    is_online: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     sessions: Mapped[list["Session"]] = relationship(
