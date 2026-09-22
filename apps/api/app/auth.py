@@ -9,7 +9,7 @@ from app.models import Session, User
 from app.security import decode_token, hash_refresh_token
 
 
-async def _as_utc(value):
+def _as_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value
