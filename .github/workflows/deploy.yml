@@ -5,11 +5,40 @@ on:
   push:
     tags: ['v*.*.*']
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
-  release:
+  docker:
     runs-on: ubuntu-latest
     environment: production
     steps:
       - uses: actions/checkout@v4
-      - name: Production gate
-        run: echo 'Production deployment is gated until hosting credentials are configured.'
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}/api
+          tags: |
+            type=ref,event=tag
+            type=sha
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./apps/api
+          file: ./apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  production-gate:
+    needs: docker
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Production deployment gate
+        run: echo 'API image published. Attach the production runtime to the GHCR image when hosting credentials are configured.'
