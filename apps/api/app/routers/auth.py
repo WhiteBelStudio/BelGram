@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 import pyotp
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,9 +16,11 @@ from app.schemas import (
     LoginRequest,
     MessageResponse,
     RecoveryRequest,
+    PresenceResponse,
     RefreshRequest,
     RegisterRequest,
     ResetPasswordRequest,
+    SessionPublic,
     TokenResponse,
     TwoFactorDisableRequest,
     TwoFactorEnableRequest,
@@ -41,6 +43,9 @@ from app.security import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+ALLOWED_AVATAR_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+MAX_AVATAR_BYTES = 5 * 1024 * 1024
 
 
 def normalize_username(username: str) -> str:
@@ -159,6 +164,98 @@ async def logout_all(user: User = Depends(get_current_user), db: AsyncSession = 
         session.revoked_at = now
     await db.commit()
     return MessageResponse(message="All sessions revoked")
+
+
+@router.get("/sessions", response_model=list[SessionPublic])
+async def list_sessions(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[Session]:
+    result = await db.execute(
+        select(Session)
+        .where(Session.user_id == user.id, Session.revoked_at.is_(None))
+        .order_by(Session.created_at.desc())
+    )
+    return list(result.scalars())
+
+
+@router.delete("/sessions/{session_id}", response_model=MessageResponse)
+async def revoke_session(
+    session_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    session = await db.scalar(
+        select(Session).where(Session.id == session_id, Session.user_id == user.id)
+    )
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    session.revoked_at = datetime.now(timezone.utc)
+    await db.commit()
+    return MessageResponse(message="Session revoked")
+
+
+@router.post("/presence/heartbeat", response_model=PresenceResponse)
+async def presence_heartbeat(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PresenceResponse:
+    now = datetime.now(timezone.utc)
+    user.is_online = True
+    user.last_seen_at = now
+    await db.commit()
+    return PresenceResponse(is_online=True, last_seen_at=now)
+
+
+@router.post("/presence/offline", response_model=PresenceResponse)
+async def presence_offline(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PresenceResponse:
+    now = datetime.now(timezone.utc)
+    user.is_online = False
+    user.last_seen_at = now
+    await db.commit()
+    return PresenceResponse(is_online=False, last_seen_at=now)
+
+
+@router.post("/avatar", response_model=UserPublic)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    suffix = ALLOWED_AVATAR_TYPES.get(file.content_type or "")
+    if suffix is None:
+        raise HTTPException(
+            status_code=415,
+            detail="Only JPEG, PNG and WebP avatars are supported",
+        )
+    content = await file.read(MAX_AVATAR_BYTES + 1)
+    if len(content) > MAX_AVATAR_BYTES:
+        raise HTTPException(status_code=413, detail="Avatar is too large")
+    from pathlib import Path
+
+    avatar_dir = Path(get_settings().media_dir) / "avatars"
+    avatar_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{user.id}-{random_token()}{suffix}"
+    path = avatar_dir / filename
+    path.write_bytes(content)
+    user.avatar_url = f"/media/avatars/{filename}"
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@router.delete("/avatar", response_model=UserPublic)
+async def delete_avatar(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    user.avatar_url = None
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 
 @router.get("/me", response_model=UserPublic)
