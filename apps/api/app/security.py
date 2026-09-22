@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import jwt
+import pyotp
 from pwdlib import PasswordHash
 
 from app.config import get_settings
@@ -45,3 +46,19 @@ def decode_token(token: str, expected_type: str) -> dict[str, Any]:
 
 def hash_refresh_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def random_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def create_totp_secret() -> str:
+    return pyotp.random_base32()
+
+
+def verify_totp(secret: str, code: str) -> bool:
+    return pyotp.TOTP(secret).verify(code, valid_window=1)
