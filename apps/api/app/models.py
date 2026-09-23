@@ -30,11 +30,13 @@ class User(Base):
     two_factor_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
     is_online: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    profile_visibility: Mapped[str] = mapped_column(String(16), default="public")
+    show_email: Mapped[bool] = mapped_column(Boolean, default=False)
+    show_last_seen: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_status: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    sessions: Mapped[list["Session"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
+    sessions: Mapped[list["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class Session(Base):
@@ -51,3 +53,31 @@ class Session(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="sessions")
+
+
+class UserBlock(Base):
+    __tablename__ = "user_blocks"
+    __table_args__ = (UniqueConstraint("blocker_id", "blocked_id", name="uq_user_blocks_pair"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    blocker_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    blocked_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class GroupMember(Base):
+    __tablename__ = "group_members"
+    __table_args__ = (UniqueConstraint("group_id", "user_id", name="uq_group_membership"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    group_id: Mapped[int] = mapped_column(Integer, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+
+
+class CommunityMember(Base):
+    __tablename__ = "community_members"
+    __table_args__ = (UniqueConstraint("community_id", "user_id", name="uq_community_membership"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    community_id: Mapped[int] = mapped_column(Integer, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
