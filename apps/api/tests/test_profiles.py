@@ -1,13 +1,13 @@
+from collections.abc import AsyncGenerator
+
 import pytest
 import pytest_asyncio
-from collections.abc import AsyncGenerator
 
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.db import Base, get_db
 from app.main import app
-
 
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_belgram.db"
