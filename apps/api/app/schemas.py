@@ -19,6 +19,44 @@ class UserPublic(BaseModel):
     created_at: datetime
 
 
+class ProfilePrivacy(BaseModel):
+    profile_visibility: str
+    show_email: bool
+    show_last_seen: bool
+    show_status: bool
+
+
+class UpdatePrivacyRequest(BaseModel):
+    profile_visibility: str = Field(default="public", pattern="^(public|private)$")
+    show_email: bool = False
+    show_last_seen: bool = True
+    show_status: bool = True
+
+
+class ProfilePublic(BaseModel):
+    id: int
+    username: str
+    display_name: str
+    avatar_url: str | None
+    bio: str
+    status: str | None
+    is_verified: bool
+    is_online: bool
+    last_seen_at: datetime | None
+    mutual_groups: int
+    mutual_communities: int
+    is_blocked: bool
+    is_private: bool
+
+
+class BlockedUserPublic(BaseModel):
+    id: int
+    username: str
+    display_name: str
+    avatar_url: str | None
+    created_at: datetime
+
+
 class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_]+$")
     email: EmailStr
