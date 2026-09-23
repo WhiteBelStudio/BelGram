@@ -1,7 +1,37 @@
-import pytest
-from httpx import ASGITransport, AsyncClient
+from collections.abc import AsyncGenerator
 
+import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.db import Base, get_db
 from app.main import app
+
+
+TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_belgram.db"
+test_engine = create_async_engine(TEST_DATABASE_URL)
+TestSession = async_sessionmaker(test_engine, expire_on_commit=False)
+
+
+async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with TestSession() as session:
+        yield session
+
+
+app.dependency_overrides[get_db] = override_get_db
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def reset_database() -> AsyncGenerator[None, None]:
+    from app import models  # noqa: F401
+
+    async with test_engine.begin() as connection:
+        await connection.run_sync(Base.metadata.drop_all)
+        await connection.run_sync(Base.metadata.create_all)
+    yield
+    async with test_engine.begin() as connection:
+        await connection.run_sync(Base.metadata.drop_all)
 
 
 async def register(client: AsyncClient, username: str, email: str) -> tuple[str, int]:
