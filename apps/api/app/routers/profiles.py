@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.auth import get_current_user
 from app.db import get_db
@@ -11,7 +12,7 @@ from app.schemas import BlockedUserPublic, MessageResponse, ProfilePrivacy, Prof
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 
-def _blocked_query(viewer_id: int, target_id: int):
+def _blocked_query(viewer_id: int, target_id: int) -> ColumnElement[bool]:
     return exists(select(UserBlock.id).where(UserBlock.blocker_id == viewer_id, UserBlock.blocked_id == target_id))
 
 
