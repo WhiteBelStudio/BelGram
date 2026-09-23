@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -21,7 +22,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-def _add_missing_profile_columns(connection) -> None:
+def _add_missing_profile_columns(connection: Any) -> None:
     inspector = inspect(connection)
     existing = {column["name"] for column in inspector.get_columns("users")}
     dialect = connection.dialect.name
