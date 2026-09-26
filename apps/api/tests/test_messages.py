@@ -1,6 +1,5 @@
-from collections.abc import AsyncGenerator
-
 import pytest
+from collections.abc import AsyncGenerator
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -12,9 +11,6 @@ from app.main import app
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_belgram_messages.db"
 test_engine = create_async_engine(TEST_DATABASE_URL)
 TestSession = async_sessionmaker(test_engine, expire_on_commit=False)
-app.dependency_overrides[get_db] = lambda: None
-
-
 async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
     async with TestSession() as session:
         yield session
