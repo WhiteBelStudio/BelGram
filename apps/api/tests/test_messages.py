@@ -1,5 +1,6 @@
-import pytest
 from collections.abc import AsyncGenerator
+
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -11,6 +12,8 @@ from app.main import app
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_belgram_messages.db"
 test_engine = create_async_engine(TEST_DATABASE_URL)
 TestSession = async_sessionmaker(test_engine, expire_on_commit=False)
+
+
 async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
     async with TestSession() as session:
         yield session
@@ -64,7 +67,7 @@ async def test_direct_messages_lifecycle() -> None:
         sent = await client.post(
             f"/messages/dialogs/{conversation_id}/messages",
             headers=first_headers,
-            json={"body": "Hello @message_two https://example.com",},
+            json={"body": "Hello @message_two https://example.com"},
         )
         assert sent.status_code == 201
         message = sent.json()
@@ -138,7 +141,11 @@ async def test_reply_forward_and_clear_history() -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         first = await register(client, "reply_one", "reply1@example.com")
         second = await register(client, "reply_two", "reply2@example.com")
-        second_id = (await client.get("/auth/me", headers={"Authorization": f"Bearer {second}"})).json()["id"]
+        second_id = (
+            await client.get(
+                "/auth/me", headers={"Authorization": f"Bearer {second}"}
+            )
+        ).json()["id"]
         first_headers = {"Authorization": f"Bearer {first}"}
 
         dialog = await client.post(f"/messages/dialogs/{second_id}", headers=first_headers)
