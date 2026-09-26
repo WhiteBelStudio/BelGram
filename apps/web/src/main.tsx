@@ -60,6 +60,10 @@ function App() {
   const [newUserId, setNewUserId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [privacy, setPrivacy] = useState({ profile_visibility: "public", show_email: false, show_last_seen: true, show_status: true });
+  const [blockedUsers, setBlockedUsers] = useState<Array<{ id: number; username: string; display_name: string; avatar_url: string | null }>>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const draftTimer = useRef<number | null>(null);
   const active = dialogs.find((dialog) => dialog.id === activeId) ?? null;
@@ -78,7 +82,7 @@ function App() {
         api<Profile>(token, "/profiles/me"),
         api<Dialog[]>(token, "/messages/dialogs"),
       ]);
-      setMe(profile); setDialogs(list);
+      setMe(profile); setProfile(profile); setDialogs(list);
     } catch (e) { setError(e instanceof Error ? e.message : "Ошибка подключения"); }
     finally { setLoading(false); }
   }
@@ -219,13 +223,36 @@ function App() {
     } catch { setSearchResults([]); }
   }
 
-  function logout() { localStorage.removeItem("belgram_access_token"); setToken(""); setMe(null); wsRef.current?.close(); }
+  async function openProfile() {
+    try {
+      const [mine, settings, blocked] = await Promise.all([
+        api<Profile>(token, "/profiles/me"),
+        api<typeof privacy>(token, "/profiles/me/privacy"),
+        api<Array<{ id: number; username: string; display_name: string; avatar_url: string | null; created_at: string }>>(token, "/profiles/me/blocked"),
+      ]);
+      setProfile(mine); setPrivacy(settings); setBlockedUsers(blocked); setProfileOpen(true);
+    } catch (e) { setError(e instanceof Error ? e.message : "Не удалось открыть профиль"); }
+  }
+
+  async function savePrivacy(next: typeof privacy) {
+    try { const saved = await api<typeof privacy>(token, "/profiles/me/privacy", { method: "PATCH", body: JSON.stringify(next) }); setPrivacy(saved); setProfile((p) => p ? { ...p, is_private: saved.profile_visibility === "private" } : p); }
+    catch (e) { setError(e instanceof Error ? e.message : "Не удалось сохранить приватность"); }
+  }
+
+  async function toggleBlock(userId: number, blocked: boolean) {
+    try {
+      await api(token, `/profiles/${userId}/block`, { method: blocked ? "DELETE" : "POST", body: blocked ? undefined : "{}" });
+      setBlockedUsers((items) => blocked ? items.filter((item) => item.id !== userId) : items);
+    } catch (e) { setError(e instanceof Error ? e.message : "Не удалось изменить блокировку"); }
+  }
+
+  function logout() { localStorage.removeItem("belgram_access_token"); setToken(""); setMe(null); setProfile(null); wsRef.current?.close(); }
 
   if (!token) return <main className="login"><div className="brand">BelGram</div><div className="login-card"><h1>Мессенджер</h1><p>Открой аккаунт и продолжи общение.</p><input value={token} onChange={(e) => setToken(e.target.value)} placeholder="Access token" onKeyDown={(e) => { if (e.key === "Enter") { localStorage.setItem("belgram_access_token", token); } }} /><button onClick={() => { localStorage.setItem("belgram_access_token", token); void load(); }}>Войти</button></div></main>;
 
   return <main className="messenger">
     <aside className={`sidebar ${activeId ? "mobile-hidden" : ""}`}>
-      <div className="side-head"><div><strong>BelGram</strong><span>{me?.is_online ? "● в сети" : "offline"}</span></div><button className="icon-btn" onClick={logout}>↪</button></div>
+      <div className="side-head"><button className="profile-short" onClick={() => void openProfile()}><div className="mini-avatar">{me && (avatar(me) ? <img src={avatar(me)} alt="" /> : me.display_name.slice(0,1))}</div><div><strong>{me?.display_name ?? "BelGram"}</strong><span>{me?.is_online ? "● в сети" : "offline"}</span></div></button><button className="icon-btn" onClick={logout}>↪</button></div>
       <div className="search"><input value={search} onChange={(e) => void runSearch(e.target.value)} placeholder="Поиск сообщений" /></div>
       <form className="new-dialog" onSubmit={createDialog}><input value={newUserId} onChange={(e) => setNewUserId(e.target.value)} placeholder="ID пользователя" /><button>+</button></form>
       {searchResults.length > 0 && <div className="search-results">{searchResults.map((m) => <button key={m.id} onClick={() => { setSearch(""); setSearchResults([]); void openDialog(m.conversation_id); }}>{m.body || "Удалённое сообщение"}</button>)}</div>}
@@ -236,7 +263,7 @@ function App() {
     </aside>
     <section className={`chat ${activeId ? "" : "mobile-hidden"}`}>
       {!active ? <div className="welcome"><div className="welcome-logo">B</div><h2>BelGram</h2><p>Выбери диалог или создай новый.</p></div> : <>
-        <header className="chat-head"><button className="back" onClick={() => setActiveId(null)}>‹</button><div className="mini-avatar">{avatar(active.peer) ? <img src={avatar(active.peer)} alt="" /> : active.peer.display_name.slice(0,1)}</div><div><strong>{active.peer.display_name}</strong><span>{active.peer.is_online ? "в сети" : "не в сети"}</span></div><button className="clear" onClick={() => void clearHistory()}>Очистить</button></header>
+        <header className="chat-head"><button className="back" onClick={() => setActiveId(null)}>‹</button><div className="mini-avatar">{avatar(active.peer) ? <img src={avatar(active.peer)} alt="" /> : active.peer.display_name.slice(0,1)}</div><div><strong>{active.peer.display_name}</strong><span>{active.peer.is_online ? "в сети" : "не в сети"}</span></div><button className="profile-open" onClick={() => { setProfile(active.peer); setProfileOpen(true); }}>Профиль</button><button className="clear" onClick={() => void clearHistory()}>Очистить</button></header>
         <div className="messages"><button className="older" onClick={() => void older()}>Загрузить старше</button>{messages.map((message) => <div className={`message-row ${message.sender_id === me?.id ? "mine" : ""}`} key={message.id}>
           <div className={`bubble ${message.deleted_at ? "deleted" : ""}`}>
             {message.reply_to_id && <div className="reply">Ответ на #{message.reply_to_id}</div>}
@@ -251,6 +278,7 @@ function App() {
         <form className="composer" onSubmit={(e) => void send(e)}>{(replyTo || editing) && <div className="composer-mode"><span>{editing ? "Редактирование" : `Ответ на #${replyTo?.id}`}</span><button type="button" onClick={() => { setReplyTo(null); setEditing(null); if (editing) setDraft(""); }}>×</button></div>}<div className="compose-row"><textarea value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Написать сообщение…" rows={1} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} /><button type="submit">➤</button></div></form>
       </>}
     </section>
+    {profileOpen && profile && <div className="profile-overlay" onClick={() => setProfileOpen(false)}><section className="profile-card" onClick={(e) => e.stopPropagation()}><button className="profile-close" onClick={() => setProfileOpen(false)}>×</button><div className="profile-avatar">{avatar(profile) ? <img src={avatar(profile)} alt="" /> : profile.display_name.slice(0,1)}</div><h2>{profile.display_name}{profile.is_verified && " ✓"}</h2><p className="profile-username">@{profile.username}</p><p>{profile.bio || "Нет описания"}</p>{profile.status && <p className="profile-status">{profile.status}</p>}<div className="profile-stats"><span>{profile.mutual_groups} общих групп</span><span>{profile.mutual_communities} общих сообществ</span></div>{profile.id === me?.id ? <><h3>Приватность</h3><label><input type="checkbox" checked={privacy.profile_visibility === "private"} onChange={(e) => void savePrivacy({ ...privacy, profile_visibility: e.target.checked ? "private" : "public" })} /> Закрытый профиль</label><label><input type="checkbox" checked={privacy.show_last_seen} onChange={(e) => void savePrivacy({ ...privacy, show_last_seen: e.target.checked })} /> Показывать время последнего посещения</label><label><input type="checkbox" checked={privacy.show_status} onChange={(e) => void savePrivacy({ ...privacy, show_status: e.target.checked })} /> Показывать статус</label><h3>Заблокированные</h3>{blockedUsers.length ? blockedUsers.map((item) => <div className="blocked-row" key={item.id}><span>{item.display_name} (@{item.username})</span><button onClick={() => void toggleBlock(item.id, true)}>Разблокировать</button></div>) : <p className="muted">Нет заблокированных пользователей</p></>}<button className="profile-block" onClick={() => void toggleBlock(profile.id, profile.is_blocked)}>{profile.is_blocked ? "Разблокировать" : "Заблокировать"}</button></section></div>}
     {error && <button className="toast" onClick={() => setError("")}>{error} ×</button>}
   </main>;
 }
