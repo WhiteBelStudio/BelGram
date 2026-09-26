@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
 from app.db import get_db
+from app.realtime import manager
 from app.models import (
     DirectConversation,
     DirectMessage,
@@ -325,7 +326,12 @@ async def send_message(
     db.add(message)
     await db.commit()
     await db.refresh(message)
-    return await _public_message(db, message)
+    public_message = await _public_message(db, message)
+    await manager.send_user(
+        peer.id,
+        {"type": "message.new", "conversation_id": conversation.id, "message": public_message.model_dump(mode="json")},
+    )
+    return public_message
 
 
 @router.patch("/dialogs/{conversation_id}/messages/{message_id}", response_model=DirectMessagePublic)
@@ -351,7 +357,12 @@ async def edit_message(
     message.edited_at = _now()
     await db.commit()
     await db.refresh(message)
-    return await _public_message(db, message)
+    public_message = await _public_message(db, message)
+    await manager.broadcast_users(
+        [user.id, peer.id],
+        {"type": "message.updated", "conversation_id": conversation_id, "message": public_message.model_dump(mode="json")},
+    )
+    return public_message
 
 
 @router.delete("/dialogs/{conversation_id}/messages/{message_id}", response_model=MessageResponse)
@@ -372,6 +383,12 @@ async def delete_message(
     message.deleted_at = _now()
     message.body = ""
     await db.commit()
+    conversation = await _conversation_for_user(db, conversation_id, user.id)
+    peer = await _peer(db, conversation, user.id)
+    await manager.broadcast_users(
+        [user.id, peer.id],
+        {"type": "message.deleted", "conversation_id": conversation_id, "message_id": message_id},
+    )
     return MessageResponse(message="Message deleted")
 
 
@@ -388,6 +405,11 @@ async def mark_delivered(
         raise HTTPException(status_code=404, detail="Message not found")
     message.delivered_at = _now()
     await db.commit()
+    conversation = await _conversation_for_user(db, conversation_id, user.id)
+    await manager.send_user(
+        message.sender_id,
+        {"type": "message.delivered", "conversation_id": conversation_id, "message_id": message_id, "delivered_at": message.delivered_at.isoformat()},
+    )
     return MessageResponse(message="Delivered")
 
 
@@ -412,6 +434,11 @@ async def mark_read(
         message.read_at = now
         count += 1
     await db.commit()
+    peer = await _peer(db, conversation, user.id)
+    await manager.send_user(
+        peer.id,
+        {"type": "message.read", "conversation_id": conversation_id, "read_at": now.isoformat()},
+    )
     return UnreadCount(unread_count=count)
 
 
@@ -437,7 +464,14 @@ async def add_reaction(
     if existing is None:
         db.add(DirectMessageReaction(message_id=message_id, user_id=user.id, emoji=payload.emoji))
         await db.commit()
-    return await _public_message(db, message)
+    public_message = await _public_message(db, message)
+    conversation = await _conversation_for_user(db, conversation_id, user.id)
+    peer = await _peer(db, conversation, user.id)
+    await manager.broadcast_users(
+        [user.id, peer.id],
+        {"type": "message.reaction", "conversation_id": conversation_id, "message": public_message.model_dump(mode="json")},
+    )
+    return public_message
 
 
 @router.delete("/dialogs/{conversation_id}/messages/{message_id}/reaction", response_model=DirectMessagePublic)
@@ -476,7 +510,14 @@ async def toggle_pin(
         raise HTTPException(status_code=404, detail="Message not found")
     message.pinned_at = None if message.pinned_at else _now()
     await db.commit()
-    return await _public_message(db, message)
+    public_message = await _public_message(db, message)
+    conversation = await _conversation_for_user(db, conversation_id, user.id)
+    peer = await _peer(db, conversation, user.id)
+    await manager.broadcast_users(
+        [user.id, peer.id],
+        {"type": "message.pinned", "conversation_id": conversation_id, "message": public_message.model_dump(mode="json")},
+    )
+    return public_message
 
 
 @router.put("/dialogs/{conversation_id}/draft", response_model=MessageResponse)
