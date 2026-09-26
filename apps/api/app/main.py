@@ -10,6 +10,7 @@ from app.config import get_settings
 from app.db import init_db
 from app.routers.auth import router as auth_router
 from app.routers.profiles import router as profiles_router
+from app.routers.messages import router as messages_router
 
 settings = get_settings()
 
@@ -32,6 +33,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(profiles_router)
+app.include_router(messages_router)
 
 media_dir = Path(get_settings().media_dir)
 media_dir.mkdir(parents=True, exist_ok=True)
