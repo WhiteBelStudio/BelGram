@@ -119,7 +119,7 @@ function App() {
         setMessages((current) => current.map((m) => m.id === data.message_id ? { ...m, body: "", deleted_at: new Date().toISOString() } : m));
       }
       if (data.type === "message.read" && data.read_at) {
-        setMessages((current) => current.map((m) => m.sender_id === me?.id ? { ...m, read_at: data.read_at } : m));
+        setMessages((current) => current.map((m) => m.sender_id === me?.id ? { ...m, read_at: data.read_at ?? null } : m));
       }
       if (data.type === "message.delivered" && data.message_id) {
         setMessages((current) => current.map((m) => m.id === data.message_id ? { ...m, delivered_at: data.delivered_at ?? new Date().toISOString() } : m));
