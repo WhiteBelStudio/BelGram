@@ -7,14 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.db import init_db
+from app.db import SessionLocal, init_db
+from app.models import Session, User
+from app.realtime import manager
 from app.routers.auth import router as auth_router
 from app.routers.messages import router as messages_router
 from app.routers.profiles import router as profiles_router
-from app.realtime import manager
 from app.security import decode_token
-from app.db import SessionLocal
-from app.models import Session, User
 
 settings = get_settings()
 
