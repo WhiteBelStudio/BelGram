@@ -139,3 +139,61 @@ class MessageResponse(BaseModel):
 class TwoFactorSetupResponse(BaseModel):
     secret: str
     otpauth_url: str
+
+
+class DialogPublic(BaseModel):
+    id: int
+    peer: ProfilePublic
+    last_message: "DirectMessagePublic | None"
+    unread_count: int
+    created_at: datetime
+
+
+class DirectMessageCreate(BaseModel):
+    body: str = Field(default="", max_length=4000)
+    reply_to_id: int | None = None
+    forwarded_from_id: int | None = None
+
+
+class DirectMessageUpdate(BaseModel):
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class DirectMessagePublic(BaseModel):
+    id: int
+    conversation_id: int
+    sender_id: int
+    body: str
+    reply_to_id: int | None
+    forwarded_from_id: int | None
+    mentions: list[str]
+    link_url: str | None
+    link_preview_title: str | None
+    created_at: datetime
+    edited_at: datetime | None
+    deleted_at: datetime | None
+    delivered_at: datetime | None
+    read_at: datetime | None
+    pinned_at: datetime | None
+    reactions: dict[str, int]
+
+
+class ReactionRequest(BaseModel):
+    emoji: str = Field(min_length=1, max_length=32)
+
+
+class DraftRequest(BaseModel):
+    body: str = Field(max_length=4000)
+
+
+class UnreadCount(BaseModel):
+    unread_count: int
+
+
+class MessageSearchResult(BaseModel):
+    message: DirectMessagePublic
+    peer: ProfilePublic
+
+
+class ClearHistoryResponse(BaseModel):
+    deleted_messages: int
