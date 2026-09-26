@@ -7,6 +7,9 @@ extend-exclude = ['.venv', '__pycache__']
 select = ['E', 'F', 'I', 'B', 'UP', 'ASYNC']
 ignore = ['B008', 'UP017']
 
+[tool.ruff.lint.isort]
+known-first-party = ['app']
+
 [tool.mypy]
 python_version = '3.12'
 strict = true
