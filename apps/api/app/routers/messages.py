@@ -621,8 +621,15 @@ async def clear_history(
     db: AsyncSession = Depends(get_db),
 ) -> ClearHistoryResponse:
     await _conversation_for_user(db, conversation_id, user.id)
-    result = await db.execute(
+    messages = (
+        await db.execute(
+            select(DirectMessage.id).where(
+                DirectMessage.conversation_id == conversation_id
+            )
+        )
+    ).scalars().all()
+    await db.execute(
         delete(DirectMessage).where(DirectMessage.conversation_id == conversation_id)
     )
     await db.commit()
-    return ClearHistoryResponse(deleted_messages=result.rowcount or 0)
+    return ClearHistoryResponse(deleted_messages=len(messages))
