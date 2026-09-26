@@ -342,7 +342,8 @@ async def edit_message(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> DirectMessagePublic:
-    await _conversation_for_user(db, conversation_id, user.id)
+    conversation = await _conversation_for_user(db, conversation_id, user.id)
+    peer = await _peer(db, conversation, user.id)
     message = await db.get(DirectMessage, message_id)
     if (
         message is None
