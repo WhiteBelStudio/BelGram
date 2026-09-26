@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
 from app.db import get_db
-from app.realtime import manager
 from app.models import (
     DirectConversation,
     DirectMessage,
@@ -17,6 +16,7 @@ from app.models import (
     User,
     UserBlock,
 )
+from app.realtime import manager
 from app.schemas import (
     ClearHistoryResponse,
     DialogPublic,
@@ -406,7 +406,7 @@ async def mark_delivered(
         raise HTTPException(status_code=404, detail="Message not found")
     message.delivered_at = _now()
     await db.commit()
-    conversation = await _conversation_for_user(db, conversation_id, user.id)
+    await _conversation_for_user(db, conversation_id, user.id)
     await manager.send_user(
         message.sender_id,
         {"type": "message.delivered", "conversation_id": conversation_id, "message_id": message_id, "delivered_at": message.delivered_at.isoformat()},
