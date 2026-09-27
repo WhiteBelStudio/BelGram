@@ -18,19 +18,18 @@ async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-app.dependency_overrides[get_db] = override_get_db
-
-
 @pytest_asyncio.fixture(autouse=True)
 async def reset_database() -> AsyncGenerator[None, None]:
     from app import models  # noqa: F401
 
+    app.dependency_overrides[get_db] = override_get_db
     async with test_engine.begin() as connection:
         await connection.run_sync(Base.metadata.drop_all)
         await connection.run_sync(Base.metadata.create_all)
     yield
     async with test_engine.begin() as connection:
         await connection.run_sync(Base.metadata.drop_all)
+    app.dependency_overrides.pop(get_db, None)
 
 
 async def register(client: AsyncClient, username: str, email: str) -> str:
